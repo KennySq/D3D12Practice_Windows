@@ -57,6 +57,20 @@ void DXSample_Triangle::loadAssets()
 		rtvHandle.ptr = rawPtr;
 	}
 	
-	
+	D3D12_ROOT_SIGNATURE_DESC rootSignDesc{};
+
+	rootSignDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rootSignDesc.NumParameters = 0;
+	rootSignDesc.NumStaticSamplers = 0;
+	rootSignDesc.pParameters = nullptr;
+	rootSignDesc.pStaticSamplers = nullptr;
+
+	ComPtr<ID3DBlob> signBlob;
+	ComPtr<ID3DBlob> errorBlob;
+
+	Throw(D3D12SerializeRootSignature(&rootSignDesc, D3D_ROOT_SIGNATURE_VERSION_1, signBlob.GetAddressOf(), errorBlob.GetAddressOf()));
+	Throw(mDevice->CreateRootSignature(0, signBlob->GetBufferPointer(), signBlob->GetBufferSize(), IID_PPV_ARGS(&mRootSign)));
+
+
 	//Throw(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCmdAllocator.Get(), ))
 }
