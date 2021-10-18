@@ -27,6 +27,8 @@ private:
 
 	void loadAssets();
 
+	void generateCommands();
+
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;
 
@@ -50,4 +52,6 @@ private:
 
 	uint mFrameIndex = 0;
 
+
+	bool mbInitialized = false;
 };

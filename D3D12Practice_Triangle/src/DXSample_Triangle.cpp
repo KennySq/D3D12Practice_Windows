@@ -11,54 +11,35 @@ void DXSample_Triangle::Awake()
 {
 	AcquireHardware();
 	loadAssets();
+
+	mbInitialized = true;
+
+	waitGPU();
 }
 
 void DXSample_Triangle::Update(float delta)
 {
-	waitGPU();
+	if (mbInitialized != true)
+	{
+		return;
+	}
 
-	Throw(mCmdAllocator->Reset());
-	Throw(mCmdList->Reset(mCmdAllocator.Get(), mPso.Get()));
-
-	mCmdList->RSSetScissorRects(1, &mScissorRect);
-	mCmdList->RSSetViewports(1, &mViewport);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-
-	D3D12_RESOURCE_BARRIER rtvBarrier;
-	D3D12_RESOURCE_TRANSITION_BARRIER rtvTransition;
-
-	rtvTransition.pResource = mRenderTargets[mFrameIndex].Get();
-	rtvTransition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	rtvTransition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	
-	rtvBarrier.Transition = rtvTransition;
-	rtvBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	rtvBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-	mCmdList->ResourceBarrier(1, &rtvBarrier);
-
-	auto virtualAddr = mRenderTargets[mFrameIndex]->GetGPUVirtualAddress();
-
-	rtvHandle.ptr = virtualAddr + (static_cast<address64>(mFrameIndex) * mRtvDescSize);
-
-	mCmdList->ClearRenderTargetView(rtvHandle, Colors::Green, 0, nullptr);
-	mCmdList->OMSetRenderTargets(0, &rtvHandle, false, nullptr);
-
-	mCmdList->IASetVertexBuffers(0, 1, &mVertexBufferView);
-
-	rtvTransition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	rtvTransition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-
-	mCmdList->ResourceBarrier(1, &rtvBarrier);
-
-	Throw(mCmdList->Close());
-
-
+	generateCommands();
 }
 
 void DXSample_Triangle::Render(float delta)
 {
+	if (mbInitialized != true)
+	{
+		return;
+	}
+	static ID3D12CommandList* cmdLists[] = { mCmdList.Get() };
+
+	mCmdQueue->ExecuteCommandLists(1, cmdLists);
+
+	mSwapchain->Present(1, 0);
+
+	waitGPU();
 }
 
 void DXSample_Triangle::Release()
@@ -76,7 +57,7 @@ void DXSample_Triangle::waitGPU()
 
 	if (mFence->GetCompletedValue() < fenceValue)
 	{
-		Throw(mFence->SetEventOnCompletion(mFenceValue, mFenceHandle));
+		Throw(mFence->SetEventOnCompletion(fenceValue, mFenceHandle));
 
 		WaitForSingleObject(mFenceHandle, INFINITE);
 	}
@@ -125,7 +106,7 @@ void DXSample_Triangle::loadAssets()
 		Throw(mSwapchain->GetBuffer(i, IID_PPV_ARGS(&mRenderTargets[i])));
 
 		mDevice->CreateRenderTargetView(mRenderTargets[i].Get(), nullptr, rtvHandle);
-	
+		mRenderTargets[i]->SetName((std::wstring(L"Render Target") + std::to_wstring(i)).c_str());
 		rawPtr += mRtvDescSize;
 		rtvHandle.ptr = rawPtr;
 	}
@@ -210,7 +191,7 @@ void DXSample_Triangle::loadAssets()
 	pipelineState.RasterizerState = rasterDesc;
 
 	Throw(mDevice->CreateGraphicsPipelineState(&pipelineState, IID_PPV_ARGS(&mPso)));
-
+	
 	Throw(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCmdAllocator)));
 
 	Throw(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCmdAllocator.Get(), mPso.Get(), IID_PPV_ARGS(&mCmdList)));
@@ -220,7 +201,7 @@ void DXSample_Triangle::loadAssets()
 	{
 		Vertex vertices[] =
 		{
-			{ {-0.25f, 0.25f * mAspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f} },
+			{ {0.0f, 0.25f * mAspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f} },
 			{ {0.25f, -0.25f * mAspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f} },
 			{ {-0.25f, -0.25f * mAspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f} },
 		};
@@ -250,6 +231,7 @@ void DXSample_Triangle::loadAssets()
 		vbDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
 		Throw(mDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &vbDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mVertexBuffer)));
+		mVertexBuffer->SetName(L"Vertex Buffer");
 
 		Throw(mVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&mapAddress)));
 		
@@ -264,4 +246,56 @@ void DXSample_Triangle::loadAssets()
 
 	
 
+}
+
+void DXSample_Triangle::generateCommands()
+{
+	Throw(mCmdAllocator->Reset());
+	Throw(mCmdList->Reset(mCmdAllocator.Get(), mPso.Get()));
+
+	mCmdList->SetGraphicsRootSignature(mRootSign.Get());
+	mCmdList->RSSetScissorRects(1, &mScissorRect);
+	mCmdList->RSSetViewports(1, &mViewport);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
+
+	D3D12_RESOURCE_BARRIER rtvBarrier{};
+	D3D12_RESOURCE_TRANSITION_BARRIER rtvTransition{};
+
+	rtvTransition.pResource = mRenderTargets[mFrameIndex].Get();
+	rtvTransition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	rtvTransition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	rtvTransition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	rtvBarrier.Transition = rtvTransition;
+	rtvBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	rtvBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	
+
+	mCmdList->ResourceBarrier(1, &rtvBarrier);
+
+	auto virtualAddr = mRtvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	rtvHandle.ptr = virtualAddr.ptr + (static_cast<address64>(mFrameIndex) * mRtvDescSize);
+
+	mCmdList->ClearRenderTargetView(rtvHandle, Colors::Green, 0, nullptr);
+	mCmdList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
+
+	mCmdList->IASetVertexBuffers(0, 1, &mVertexBufferView);
+
+	rtvTransition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	rtvTransition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+	rtvBarrier.Transition = rtvTransition;
+	
+	mCmdList->SetPipelineState(mPso.Get());
+	mCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+	mCmdList->DrawInstanced(3, 1, 0, 0);
+
+
+	mCmdList->ResourceBarrier(1, &rtvBarrier);
+
+
+	Throw(mCmdList->Close());
 }
