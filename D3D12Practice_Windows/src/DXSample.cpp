@@ -3,7 +3,7 @@
 #include "inc/DXSample.h"
 
 DXSample::DXSample(uint width, uint height, const char* name)
-	: mWidth(width), mHeight(height), mAppName(name)
+	: mWidth(width), mHeight(height), mAppName(name), mAspectRatio(static_cast<float>(width) / static_cast<float>(height))
 {
 }
 

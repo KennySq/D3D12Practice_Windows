@@ -30,11 +30,10 @@ protected:
 	ComPtr<IDXGIAdapter4> mAdapter;
 
 	ComPtr<ID3D12CommandQueue> mCmdQueue;
-	ComPtr<ID3D12CommandAllocator> mCmdAllocator;
 
 	ComPtr<IDXGISwapChain4> mSwapchain;
 
-
+	uint mAspectRatio;
 private:
 
 	const char* mAppName;
