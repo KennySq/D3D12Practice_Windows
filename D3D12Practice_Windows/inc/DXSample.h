@@ -17,6 +17,8 @@ public:
 	uint GetWidth() const { return mWidth; }
 	uint GetHeight() const { return mHeight; }
 
+	const char* GetName() const { return mAppName; }
+
 protected:
 	static const uint BUFFER_COUNT = 2;
 
@@ -33,7 +35,7 @@ protected:
 
 	ComPtr<IDXGISwapChain4> mSwapchain;
 
-	uint mAspectRatio;
+	float mAspectRatio;
 private:
 
 	const char* mAppName;

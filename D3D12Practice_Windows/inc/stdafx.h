@@ -13,6 +13,8 @@
 #include<exception>
 #include<stdexcept>
 
+#include<string>
+
 #include"Util.h"
 
 #pragma comment(lib, "d3d12.lib")

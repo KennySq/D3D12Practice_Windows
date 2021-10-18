@@ -5,20 +5,12 @@
 
 HWND Window::mHandle = nullptr;
 
-Window::Window(uint width, uint height, HWND hWnd, HINSTANCE handleInst, DXSample* sample, int nCmdShow)
-{
-}
-
-Window::~Window()
-{
-}
-
 int Window::Run(DXSample* sample, HINSTANCE handleInst, int nCmdShow)
 {
 
 	// sample init ...
 
-	WNDCLASSEX wndClass = { 0 };
+	WNDCLASSEX wndClass = {};
 
 	wndClass.cbSize = sizeof(WNDCLASSEX);
 	wndClass.lpfnWndProc = WndProc;
@@ -33,14 +25,15 @@ int Window::Run(DXSample* sample, HINSTANCE handleInst, int nCmdShow)
 
 	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, false);
 
-	mHandle = CreateWindow("DXSampleClass", "Sample",
+	mHandle = CreateWindow(wndClass.lpszClassName, sample->GetName(),
 		WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
 		windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
 		nullptr, nullptr, handleInst, sample);
 
-	ShowWindow(mHandle, nCmdShow);
 
 	sample->Awake();
+
+	ShowWindow(mHandle, nCmdShow);
 
 	MSG msg{};
 
@@ -59,11 +52,6 @@ int Window::Run(DXSample* sample, HINSTANCE handleInst, int nCmdShow)
 	// sample destroy ...
 
 	return static_cast<char>(msg.wParam);
-}
-
-void Window::registerClass(HINSTANCE handleInst)
-{
-
 }
 
 LRESULT __stdcall Window::WndProc(HWND hWnd, uint message, WPARAM wParam, LPARAM lParam)
