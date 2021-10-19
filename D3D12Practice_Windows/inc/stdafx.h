@@ -9,10 +9,12 @@
 #include<DirectXColors.h>
 
 #include<wrl.h>
+#include<combaseapi.h>
 
 #include<exception>
 #include<stdexcept>
 
+#include<vector>
 #include<string>
 
 #include"Util.h"
