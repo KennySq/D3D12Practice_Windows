@@ -133,9 +133,11 @@ void DXSample_Triangle::loadAssets()
 #else
 	DWORD compileFlag = 0;
 #endif
-	
-	Throw(D3DCompileFromFile(L"C:/Users/odess/Documents/D3D12Practice_Windows/D3D12Practice_Triangle/resources/Default.hlsl", nullptr, nullptr, "vert", "vs_5_0", compileFlag, 0, vertexShader.GetAddressOf(), errorBlob.GetAddressOf()));
-	Throw(D3DCompileFromFile(L"C:/Users/odess/Documents/D3D12Practice_Windows/D3D12Practice_Triangle/resources/Default.hlsl", nullptr, nullptr, "frag", "ps_5_0", compileFlag, 0, pixelShader.GetAddressOf(), errorBlob.GetAddressOf()));
+	std::wstring path = GetWorkingDirectoryW();
+	path += L"..\\..\\D3D12Practice_Triangle\\resources\\Default.hlsl";
+
+	Throw(D3DCompileFromFile(path.c_str(), nullptr, nullptr, "vert", "vs_5_0", compileFlag, 0, vertexShader.GetAddressOf(), errorBlob.GetAddressOf()));
+	Throw(D3DCompileFromFile(path.c_str(), nullptr, nullptr, "frag", "ps_5_0", compileFlag, 0, pixelShader.GetAddressOf(), errorBlob.GetAddressOf()));
 	
 	D3D12_SHADER_BYTECODE vertexBytes = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
 	D3D12_SHADER_BYTECODE pixelBytes = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
