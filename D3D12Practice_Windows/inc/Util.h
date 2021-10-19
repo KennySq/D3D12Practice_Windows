@@ -5,6 +5,7 @@ using namespace Microsoft::WRL;
 
 typedef long long fence64;
 typedef UINT uint;
+typedef long long address64;
 struct FenceObject
 {
 	ComPtr<ID3D12Fence> Fence;
@@ -18,6 +19,8 @@ static HRESULT Throw(HRESULT result)
 	{
 		throw std::runtime_error("");
 	}
+
+	return result;
 }
 
 static std::wstring GetWorkingDirectoryW()
@@ -56,10 +59,10 @@ static D3D12_BLEND_DESC MakeBlendState()
 	rtBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
 	rtBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	rtBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
-	rtBlendDesc.SrcBlend = D3D12_BLEND_ZERO;
-	rtBlendDesc.DestBlend = D3D12_BLEND_ONE;
-	rtBlendDesc.SrcBlendAlpha = D3D12_BLEND_ZERO;
-	rtBlendDesc.DestBlendAlpha = D3D12_BLEND_ONE;
+	rtBlendDesc.SrcBlend = D3D12_BLEND_ONE;
+	rtBlendDesc.DestBlend = D3D12_BLEND_ZERO;
+	rtBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	rtBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
 	rtBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	for (uint i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
@@ -71,4 +74,28 @@ static D3D12_BLEND_DESC MakeBlendState()
 	blendDesc.IndependentBlendEnable = false;
 
 	return blendDesc;
+}
+
+static D3D12_RESOURCE_BARRIER MakeTransition(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, D3D12_RESOURCE_BARRIER_FLAGS flag = D3D12_RESOURCE_BARRIER_FLAG_NONE)
+{
+	D3D12_RESOURCE_BARRIER barrier{};
+	D3D12_RESOURCE_TRANSITION_BARRIER transition{};
+
+	transition.pResource = resource;
+	transition.StateBefore = before;
+	transition.StateAfter = after;
+	transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	
+	barrier.Transition = transition;
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+	return barrier;
+}
+
+static D3D12_CPU_DESCRIPTOR_HANDLE MakeCPUDescriptorHandle(ID3D12DescriptorHeap* heap, address64 index, address64 stride)
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = { heap->GetCPUDescriptorHandleForHeapStart().ptr + (index * stride) };
+
+	return handle;
 }

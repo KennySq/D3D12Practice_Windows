@@ -23,7 +23,7 @@ protected:
 	static const uint BUFFER_COUNT = 2;
 
 	void AcquireHardware();
-
+	
 	uint mWidth;
 	uint mHeight;
 
