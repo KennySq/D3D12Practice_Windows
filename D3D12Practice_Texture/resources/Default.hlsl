@@ -22,7 +22,9 @@ Pixel_Input vert(Vertex_Input input)
 
 float4 frag(Pixel_Input input) : SV_Target0
 {
-    float4 color = input.Texcoord.xyxy;
+    float4 color = float4(input.Texcoord.xy, 0.0f, 1.0f);
     
+    
+  //  return float4(1, 1, 1, 1);
     return color;
 }

@@ -289,7 +289,6 @@ void DXSample_Triangle::generateCommands()
 	rtvTransition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 	rtvBarrier.Transition = rtvTransition;
 	
-	mCmdList->SetPipelineState(mPso.Get());
 	mCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 

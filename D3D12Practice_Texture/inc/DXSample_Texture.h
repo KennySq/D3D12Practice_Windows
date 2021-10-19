@@ -7,6 +7,12 @@
 
 class DXSample_Texture : public DXSample
 {
+
+	struct Vertex
+	{
+		DirectX::XMFLOAT3 Position;
+		DirectX::XMFLOAT2 Texcoord;
+	};
 public:
 	DXSample_Texture(uint width, uint height, const char* appName);
 	
@@ -17,6 +23,8 @@ public:
 private:
 
 	static const uint FRAME_COUNT = 2;
+
+	void waitGPU();
 
 	void startPipeline();
 	void loadAssets();
@@ -41,6 +49,9 @@ private:
 
 	ComPtr<ID3D12Resource> mVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
+
+	D3D12_RECT mScissorRect;
+	D3D12_VIEWPORT mViewport;
 
 	ComPtr<ID3D12PipelineState> mPSO;
 };
