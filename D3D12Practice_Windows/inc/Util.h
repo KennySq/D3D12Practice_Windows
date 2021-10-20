@@ -13,6 +13,40 @@ struct FenceObject
 	fence64 Value;
 };
 
+struct RootParameter
+{
+
+	std::unique_ptr<D3D12_ROOT_PARAMETER> Parameter;
+	std::unique_ptr<D3D12_ROOT_DESCRIPTOR_TABLE> Table;
+	std::unique_ptr<D3D12_DESCRIPTOR_RANGE> Range;
+
+	uint DescriptorCount;
+	D3D12_DESCRIPTOR_RANGE_TYPE Type;
+
+	RootParameter(uint descriptorCount, D3D12_DESCRIPTOR_RANGE_TYPE type)
+		: DescriptorCount(descriptorCount), Type(type),
+		Parameter(std::make_unique<D3D12_ROOT_PARAMETER>()),
+		Table(std::make_unique<D3D12_ROOT_DESCRIPTOR_TABLE>()),
+		Range(std::make_unique<D3D12_DESCRIPTOR_RANGE>())
+	{
+
+	}
+
+	RootParameter(const RootParameter& other) = delete;
+	RootParameter(RootParameter&& other)
+		:	Parameter(std::move(other.Parameter)), Table(std::move(other.Table)), Range(std::move(other.Range))
+			, DescriptorCount(other.DescriptorCount), Type(other.Type)
+	{
+
+	}
+
+	~RootParameter()
+	{
+
+	}
+
+};
+
 static HRESULT Throw(HRESULT result)
 {
 	if (FAILED(result))
@@ -98,4 +132,22 @@ static D3D12_CPU_DESCRIPTOR_HANDLE MakeCPUDescriptorHandle(ID3D12DescriptorHeap*
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = { heap->GetCPUDescriptorHandleForHeapStart().ptr + (index * stride) };
 
 	return handle;
+}
+
+
+static const RootParameter&& MakeRootParameter(uint descriptorCount, D3D12_DESCRIPTOR_RANGE_TYPE type)
+{
+	RootParameter param(descriptorCount, type);
+
+	param.Range->NumDescriptors = descriptorCount;
+	param.Range->RangeType = type;
+	param.Range->OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	param.Table->NumDescriptorRanges = 1;
+	param.Table->pDescriptorRanges = param.Range.get();
+
+	param.Parameter->DescriptorTable = *param.Table;
+
+	return std::move(param);
+	
 }

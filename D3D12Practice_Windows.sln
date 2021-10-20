@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12Practice_Triangle", "D
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12Practice_Texture", "D3D12Practice_Texture\D3D12Practice_Texture.vcxproj", "{AD9999E8-5F1B-44E4-BBD8-157B8E6595EB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12Practice_ConstantBuffer", "D3D12Practice_ConstantBuffer\D3D12Practice_ConstantBuffer.vcxproj", "{A29A689F-93CE-45C0-9006-15224BEA297B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{AD9999E8-5F1B-44E4-BBD8-157B8E6595EB}.Release|x64.Build.0 = Release|x64
 		{AD9999E8-5F1B-44E4-BBD8-157B8E6595EB}.Release|x86.ActiveCfg = Release|Win32
 		{AD9999E8-5F1B-44E4-BBD8-157B8E6595EB}.Release|x86.Build.0 = Release|Win32
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Debug|x64.ActiveCfg = Debug|x64
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Debug|x64.Build.0 = Debug|x64
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Debug|x86.ActiveCfg = Debug|Win32
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Debug|x86.Build.0 = Debug|Win32
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Release|x64.ActiveCfg = Release|x64
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Release|x64.Build.0 = Release|x64
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Release|x86.ActiveCfg = Release|Win32
+		{A29A689F-93CE-45C0-9006-15224BEA297B}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
