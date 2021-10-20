@@ -26,7 +26,7 @@ void DXSample_Texture::Update(float delta)
 
 	mCmdList->ResourceBarrier(1, &rtvBarrier);
 
-	mCmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::Pink, 0, nullptr);
+	mCmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::Green, 0, nullptr);
 	mCmdList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
 
 	rtvBarrier = MakeTransition(mRenderTargets[mFrameIndex].Get(),
@@ -38,8 +38,16 @@ void DXSample_Texture::Update(float delta)
 	mCmdList->RSSetScissorRects(1, &mScissorRect);
 	mCmdList->RSSetViewports(1, &mViewport);
 
+
 	mCmdList->SetGraphicsRootSignature(mRootSign.Get());
 	mCmdList->SetPipelineState(mPSO.Get());
+
+	static ID3D12DescriptorHeap* srvHeaps[] = { mSrvHeap.Get() };
+
+	mCmdList->SetDescriptorHeaps(1, srvHeaps);
+	mCmdList->SetGraphicsRootDescriptorTable(0, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
+
+
 
 	mCmdList->DrawInstanced(3, 1, 0, 0);
 
@@ -68,10 +76,30 @@ void DXSample_Texture::Release()
 {
 }
 
+//void DXSample_Texture::waitGPU()
+//{
+//	static ID3D12Fence* fence = mFence.Fence.Get();
+//	const address64 fenceValue = mFence.Value;
+//
+//	Throw(mCmdQueue->Signal(fence, fenceValue));
+//
+//	mFence.Value++;
+//
+//
+//	if (fence->GetCompletedValue() < fenceValue)
+//	{
+//		Throw(fence->SetEventOnCompletion(fenceValue, mFence.Handle));
+//
+//		WaitForSingleObject(mFence.Handle, INFINITE);
+//	}
+//
+//	mFrameIndex = mSwapchain->GetCurrentBackBufferIndex();
+//}
+
 void DXSample_Texture::waitGPU()
 {
 	static ID3D12Fence* fence = mFence.Fence.Get();
-	const address64 fenceValue = mFence.Value;
+	const address64 fenceValue = fence->GetCompletedValue() + 1;
 
 	Throw(mCmdQueue->Signal(fence, fenceValue));
 
@@ -94,11 +122,38 @@ void DXSample_Texture::startPipeline()
 
 	mFence = MakeFence(mDevice.Get());
 
-	D3D12_ROOT_SIGNATURE_DESC rootSignDesc{};
+	D3D12_ROOT_SIGNATURE_DESC rootSignDesc = {};
+	D3D12_ROOT_PARAMETER parameters[1] = { {} };
+	D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable = {};
+	D3D12_ROOT_DESCRIPTOR descriptor = {};
+	D3D12_DESCRIPTOR_RANGE range[1] = { {} };
+
+	range[0].NumDescriptors = 1;
+	range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	descriptorTable.pDescriptorRanges = range;
+	descriptorTable.NumDescriptorRanges = 1;
+
+	parameters[0].DescriptorTable = descriptorTable;
+	parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.Filter = D3D12_FILTER::D3D12_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	
 
 	rootSignDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSignDesc.pParameters = nullptr;
-	rootSignDesc.pStaticSamplers = nullptr;
+	rootSignDesc.NumParameters = 1;
+	rootSignDesc.NumStaticSamplers = 1;
+	rootSignDesc.pParameters = parameters;
+	rootSignDesc.pStaticSamplers = &samplerDesc;
 	
 	ComPtr<ID3DBlob> rootSign;
 	ComPtr<ID3DBlob> error;
@@ -172,8 +227,6 @@ void DXSample_Texture::startPipeline()
 	Throw(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCmdAllocator)));
 	Throw(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCmdAllocator.Get(), mPSO.Get(), IID_PPV_ARGS(&mCmdList)));
 
-	
-
 	Throw(mCmdList->Close());
 
 	waitGPU();
@@ -181,6 +234,26 @@ void DXSample_Texture::startPipeline()
 
 void DXSample_Texture::loadAssets()
 {
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	mSrvDescSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	Throw(mDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap)));
+
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
+
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.NumDescriptors = FRAME_COUNT;
+
+	mRtvDescSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	Throw(mDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&mRtvHeap)));
+
+	// resources being generated after all descriptor heaps are initialized.
+
 	generateTexture();
 
 	mViewport.TopLeftX = 0;
@@ -196,13 +269,6 @@ void DXSample_Texture::loadAssets()
 	mScissorRect.right = mWidth;
 	mScissorRect.bottom = mHeight;
 
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = 1;
-
-	mSrvDescSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	Throw(mDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap)));
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle{};
 	srvHandle.ptr = mSrvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
@@ -210,17 +276,7 @@ void DXSample_Texture::loadAssets()
 	mDevice->CreateShaderResourceView(mTexture.Get(), nullptr, srvHandle);
 
 	// RTV Descriptor Heap
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
-
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.NumDescriptors = FRAME_COUNT;
-
-	mRtvDescSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	Throw(mDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&mRtvHeap)));
-
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{};
-
 	for (uint i = 0; i < FRAME_COUNT; i++)
 	{
 		rtvHandle.ptr = mRtvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
@@ -252,9 +308,9 @@ void DXSample_Texture::loadAssets()
 
 	Vertex vertices[] =
 	{
-		{ {0.0f, 0.25f * mAspectRatio , 0.0f},{ 0.0f, 0.0f} },
-		{ {0.25f, -0.25f * mAspectRatio , 0.0f},{ 1.0f, 0.0f} },
-		{ {-0.25f, -0.25f * mAspectRatio , 0.0f},{ 1.0f, 1.0f} },
+		{ {0.0f, 0.25f * mAspectRatio , 0.0f},{ 0.5f, 0.0f} },
+		{ {0.25f, -0.25f * mAspectRatio , 0.0f},{ 1.0f, 1.0f} },
+		{ {-0.25f, -0.25f * mAspectRatio , 0.0f},{ 0.0f, 1.0f} },
 	};
 
 	D3D12_RANGE readRange{};
@@ -282,6 +338,13 @@ void DXSample_Texture::generateTexture()
 	const uint width = 512;
 	const uint height = 512;
 
+	const uint pixelSize = 16;
+	const uint component = 4;
+	const uint rowPitch = width * component;
+	const uint cellPitch = rowPitch >> 3;        // The width of a cell in the checkboard texture.
+	const uint cellHeight = height >> 3;    // The height of a cell in the checkerboard texture.
+	const uint textureSize = rowPitch * height;
+
 	D3D12_RESOURCE_DESC rsDesc{};
 
 	rsDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -303,7 +366,7 @@ void DXSample_Texture::generateTexture()
 
 	bufferDesc.Format = DXGI_FORMAT_UNKNOWN;
 	bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	bufferDesc.Width = width * height * 16;
+	bufferDesc.Width = width * height * pixelSize;
 	bufferDesc.Height = 1;
 	bufferDesc.DepthOrArraySize = 1;
 	bufferDesc.MipLevels = 1;
@@ -318,16 +381,10 @@ void DXSample_Texture::generateTexture()
 	
 	D3D12_RANGE readRange = {0, 0};
 
-	const uint pixelSize = 4;
-	const uint rowPitch =  width * pixelSize;
-	const uint cellPitch = rowPitch >> 3;        // The width of a cell in the checkboard texture.
-	const uint cellHeight = width >> 3;    // The height of a cell in the checkerboard texture.
-	const uint textureSize = rowPitch * height;
+	std::vector<float> data(textureSize);
+	float* pData = &data[0];
 
-	std::vector<byte> data(textureSize);
-	byte* pData = &data[0];
-
-	for (uint n = 0; n < textureSize; n += pixelSize)
+	for (uint n = 0; n < textureSize; n += component)
 	{
 		uint x = n % rowPitch;
 		uint y = n / rowPitch;
@@ -336,17 +393,17 @@ void DXSample_Texture::generateTexture()
 
 		if (i % 2 == j % 2)
 		{
-			pData[n] = 0x00;        // R
-			pData[n + 1] = 0x00;    // G
-			pData[n + 2] = 0x00;    // B
-			pData[n + 3] = 0xff;    // A
+			pData[n] = 0;        // R
+			pData[n + 1] = 0;    // G
+			pData[n + 2] = 0;    // B
+			pData[n + 3] = 0;    // A
 		}
 		else
 		{
-			pData[n] = 0xff;        // R
-			pData[n + 1] = 0xff;    // G
-			pData[n + 2] = 0xff;    // B
-			pData[n + 3] = 0xff;    // A
+			pData[n] = 1;        // R
+			pData[n + 1] = 1;    // G
+			pData[n + 2] = 1;    // B
+			pData[n + 3] = 1;    // A
 		}
 	}
 
@@ -357,7 +414,7 @@ void DXSample_Texture::generateTexture()
 
 	Throw(textureBuffer->Map(0, &readRange, reinterpret_cast<void**>(&rawPtr)));
 	
-	memcpy(rawPtr, pData, pixelSize * width * height);
+	memcpy(rawPtr, pData, width * height * pixelSize);
 
 	textureBuffer->Unmap(0, nullptr);
 
@@ -385,6 +442,25 @@ void DXSample_Texture::generateTexture()
 
 	ID3D12CommandList* cmdLists[] = { mCmdList.Get() };
 	mCmdQueue->ExecuteCommandLists(1, cmdLists);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle{};
+
+	mSrvDescSize = mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	srvHandle = MakeCPUDescriptorHandle(mSrvHeap.Get(), 0, mSrvDescSize);
+
+	D3D12_RESOURCE_BARRIER textureTransition = MakeTransition(mTexture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+	mCmdList->ResourceBarrier(1, &textureTransition);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+
+	mDevice->CreateShaderResourceView(mTexture.Get(), &srvDesc, srvHandle);
+
 
 	waitGPU();
 }

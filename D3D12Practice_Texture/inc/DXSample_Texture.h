@@ -23,6 +23,7 @@ public:
 private:
 
 	static const uint FRAME_COUNT = 2;
+	static const uint RESOURCE_COUNT = 1;
 
 	void waitGPU();
 

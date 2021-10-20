@@ -1,3 +1,7 @@
+SamplerState DefaultSampler : register(s0);
+
+Texture2D SampleTexture : register(t0);
+
 struct Vertex_Input
 {
     float3 Position : POSITION0;
@@ -24,6 +28,7 @@ float4 frag(Pixel_Input input) : SV_Target0
 {
     float4 color = float4(input.Texcoord.xy, 0.0f, 1.0f);
     
+    color = SampleTexture.Sample(DefaultSampler, input.Texcoord);
     
   //  return float4(1, 1, 1, 1);
     return color;
