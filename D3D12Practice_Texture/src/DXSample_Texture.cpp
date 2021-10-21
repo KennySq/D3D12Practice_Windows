@@ -76,26 +76,6 @@ void DXSample_Texture::Release()
 {
 }
 
-//void DXSample_Texture::waitGPU()
-//{
-//	static ID3D12Fence* fence = mFence.Fence.Get();
-//	const address64 fenceValue = mFence.Value;
-//
-//	Throw(mCmdQueue->Signal(fence, fenceValue));
-//
-//	mFence.Value++;
-//
-//
-//	if (fence->GetCompletedValue() < fenceValue)
-//	{
-//		Throw(fence->SetEventOnCompletion(fenceValue, mFence.Handle));
-//
-//		WaitForSingleObject(mFence.Handle, INFINITE);
-//	}
-//
-//	mFrameIndex = mSwapchain->GetCurrentBackBufferIndex();
-//}
-
 void DXSample_Texture::waitGPU()
 {
 	static ID3D12Fence* fence = mFence.Fence.Get();
@@ -172,7 +152,7 @@ void DXSample_Texture::startPipeline()
 
 	D3D12_INPUT_LAYOUT_DESC ilDesc = { inputElements, ARRAYSIZE(inputElements) };
 
-	D3D12_BLEND_DESC blendDesc = MakeBlendState();
+	D3D12_BLEND_DESC blendDesc = MakeDefaultBlendState();
 
 	ComPtr<ID3DBlob> vertexShader;
 	ComPtr<ID3DBlob> pixelShader;
