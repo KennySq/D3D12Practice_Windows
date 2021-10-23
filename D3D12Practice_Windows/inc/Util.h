@@ -6,82 +6,6 @@ using namespace Microsoft::WRL;
 typedef long long fence64;
 typedef UINT uint;
 typedef long long address64;
-struct FenceObject
-{
-	ComPtr<ID3D12Fence> Fence;
-	HANDLE Handle;
-	fence64 Value;
-};
-
-struct RootParameter
-{
-	std::shared_ptr<D3D12_ROOT_PARAMETER> Parameter;
-	std::shared_ptr<D3D12_ROOT_DESCRIPTOR_TABLE> Table;
-	std::shared_ptr<D3D12_DESCRIPTOR_RANGE> Range;
-
-	uint DescriptorCount;
-	D3D12_DESCRIPTOR_RANGE_TYPE Type;
-
-	RootParameter(uint descriptorCount, D3D12_DESCRIPTOR_RANGE_TYPE type, D3D12_SHADER_VISIBILITY visibility) noexcept
-		: DescriptorCount(descriptorCount), Type(type),
-		Parameter(std::make_shared<D3D12_ROOT_PARAMETER>()),
-		Table(std::make_shared<D3D12_ROOT_DESCRIPTOR_TABLE>()),
-		Range(std::make_shared<D3D12_DESCRIPTOR_RANGE>())
-	{
-		Parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		Parameter->ShaderVisibility = visibility;
-
-		Range->NumDescriptors = descriptorCount;
-		Range->RangeType = type;
-		Range->OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-
-		Table->NumDescriptorRanges = 1;
-		Table->pDescriptorRanges = Range.get();
-
-
-		Parameter->DescriptorTable = *Table;
-	}
-
-	RootParameter()
-		: DescriptorCount(0), Type(D3D12_DESCRIPTOR_RANGE_TYPE_SRV)
-	{
-
-	}
-
-	RootParameter(const RootParameter& other)
-		: Parameter(other.Parameter), Table(other.Table), Range(other.Range)
-		, DescriptorCount(other.DescriptorCount), Type(other.Type)
-	{
-
-	}
-
-	RootParameter operator=(const RootParameter& other)
-	{
-		Parameter = other.Parameter;
-		Table = other.Table;
-		Range = other.Range;
-
-		DescriptorCount = other.DescriptorCount;
-		Type = other.Type;
-
-		return *this;
-	}
-
-
-	RootParameter(RootParameter&& other) noexcept
-		: Parameter(std::move(other.Parameter)), Table(std::move(other.Table)), Range(std::move(other.Range))
-		, DescriptorCount(other.DescriptorCount), Type(other.Type)
-	{
-
-	}
-
-	~RootParameter()
-	{
-
-	}
-
-};
 
 static HRESULT Throw(HRESULT result)
 {
@@ -92,6 +16,93 @@ static HRESULT Throw(HRESULT result)
 
 	return result;
 }
+
+
+struct FenceObject
+{
+	ComPtr<ID3D12Fence> Fence;
+	HANDLE Handle;
+	fence64 Value;
+};
+
+struct MultipleFenceObject
+{
+	ComPtr<ID3D12Fence> Fence;
+	std::vector<fence64> Values;
+	HANDLE Handle;
+	MultipleFenceObject()
+	{
+
+	}
+
+	MultipleFenceObject(const MultipleFenceObject& other)
+		: Fence(other.Fence), Values(other.Values), Handle(other.Handle)
+	{
+
+	}
+
+	MultipleFenceObject(ID3D12Device* device, uint count)
+		: Values(count), Handle(CreateEvent(nullptr, false, false, nullptr))
+	{
+		Throw(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
+	}
+
+};
+
+struct DescriptorRangeMaker
+{
+	const D3D12_DESCRIPTOR_RANGE& operator()(uint descriptorCount, D3D12_DESCRIPTOR_RANGE_TYPE type)
+	{
+		D3D12_DESCRIPTOR_RANGE range{};
+		range.NumDescriptors = descriptorCount;
+		range.RangeType = type;
+		range.OffsetInDescriptorsFromTableStart = 0xffffffff;
+
+		return range;
+	}
+
+	const D3D12_DESCRIPTOR_RANGE& operator()()
+	{
+		D3D12_DESCRIPTOR_RANGE range{};
+
+		range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		
+		return range;
+	}
+};
+
+struct RootParameter
+{
+	std::shared_ptr<D3D12_ROOT_PARAMETER> Parameter;
+
+	uint DescriptorCount;
+	D3D12_DESCRIPTOR_RANGE_TYPE Type;
+
+	std::vector<D3D12_DESCRIPTOR_RANGE> Ranges;
+
+	void AddRange(D3D12_DESCRIPTOR_RANGE_TYPE type, uint count, uint baseRegister, uint registerSpace = 0, D3D12_DESCRIPTOR_RANGE_FLAGS flag = D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
+
+	void AsDescriptorTable();
+	void AsConstantBuffer(uint value32Count, uint shaderRegister);
+	void AsConstantBufferView(uint shaderRegister, uint registerSpace, D3D12_SHADER_VISIBILITY visibility);
+
+	RootParameter()
+		: DescriptorCount(0), Type(D3D12_DESCRIPTOR_RANGE_TYPE_SRV)
+	{
+
+	}
+
+	~RootParameter()
+	{
+
+	}
+
+
+private:
+
+	void generate();
+};
+
 
 static std::wstring GetWorkingDirectoryW()
 {
@@ -215,4 +226,28 @@ static D3D12_RESOURCE_DESC MakeTexture2DDescriptor(uint width, uint height, DXGI
 
 	return texDesc;
 
+}
+
+static D3D12_DEPTH_STENCIL_DESC MakeDefaultDepthStencilState()
+{
+	D3D12_DEPTH_STENCILOP_DESC opDesc{};
+	D3D12_DEPTH_STENCIL_DESC desc;
+
+	desc.StencilEnable = false;
+	opDesc.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	opDesc.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	opDesc.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	opDesc.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+	desc.BackFace = opDesc;
+	desc.FrontFace = opDesc;
+
+	desc.DepthEnable = true;
+	desc.StencilReadMask = 0xFF;
+	desc.StencilWriteMask = 0xFF;
+
+	desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	
+	return desc;
 }
