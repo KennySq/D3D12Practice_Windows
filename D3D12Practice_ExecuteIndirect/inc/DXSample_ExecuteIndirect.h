@@ -28,12 +28,22 @@ public:
 private:
 	static const uint FRAME_COUNT = 2;
 	static const uint RESOURCES_PER_FRAME = 3;
+	static const uint TRIANGLE_COUNT = 1024;
+
 	void startPipeline();
 	void loadAssets();
+	void waitGPU();
+	void waitFrame();
+
+	void clearScreen();
+
+	D3D12_VIEWPORT mViewport;
+	D3D12_RECT mScissorRect;
 
 	ComPtr<ID3D12Resource> mRenderTargets[FRAME_COUNT];
 	ComPtr<ID3D12DescriptorHeap> mRtvHeap;
 	uint mRtvDescSize;
+	uint mFrameIndex = 0;
 
 	ComPtr<ID3D12Resource> mDepthStencil;
 	ComPtr<ID3D12DescriptorHeap> mDsvHeap;
@@ -42,19 +52,25 @@ private:
 	ComPtr<ID3D12Resource> mCbuffer;
 	ComPtr<ID3D12DescriptorHeap> mResourceHeap;
 	uint mResourceDescSize;
-	
+	std::vector<Constants> mInstanceData;
+
+	DescriptorRangeMaker mDRM;
 
 	ComPtr<ID3D12GraphicsCommandList> mCmdList;
+	ComPtr<ID3D12GraphicsCommandList> mComputeCmdList;
 
-	ComPtr<ID3D12RootSignature> mRootSign;
 
-	FenceObject mFence;
+	ComPtr<ID3D12RootSignature> mDefaultRootSign;
+	ComPtr<ID3D12RootSignature> mComputeRootSign;
+	MultipleFenceObject mFence;
 
 	ComPtr<ID3D12Resource> mVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
 
 	ComPtr<ID3D12PipelineState> mPSO;
+	ComPtr<ID3D12PipelineState> mComputePSO;
 
 	ComPtr<ID3D12CommandAllocator> mCmdAllocator[FRAME_COUNT];
+	ComPtr<ID3D12CommandAllocator> mComputeCmdAllocator;
 
 };
